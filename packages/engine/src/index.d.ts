@@ -271,6 +271,7 @@ type ChildWorkflowExecuteOptions$1 = {
     rootDir?: string;
     allowNetwork?: boolean;
     maxOutputBytes?: number;
+    maxAgentCheckpointBytes?: number;
     toolTimeoutMs?: number;
     workflowPath?: string;
     signal?: AbortSignal;

@@ -115,18 +115,65 @@ type CliOutputInterpreter$2 = {
     onExit?: (result: RunCommandResult$2) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
 };
 
+type AgentCheckpointJsonPrimitive = null | boolean | number | string;
+type AgentCheckpointJsonArray = AgentCheckpointJsonValue[];
+type AgentCheckpointJsonObject = {
+    [key: string]: AgentCheckpointJsonValue;
+};
+/** A strict, recursively JSON-serializable value. */
+type AgentCheckpointJsonValue = AgentCheckpointJsonPrimitive | AgentCheckpointJsonArray | AgentCheckpointJsonObject;
+/**
+ * Versioned state returned by an agent and supplied to a later generation.
+ * Smithers validates and persists `payload` as JSON but never interprets it.
+ */
+type AgentCheckpoint = {
+    codec: string;
+    version: number;
+    payload: AgentCheckpointJsonValue;
+};
+/** Identifies why a saved checkpoint is being supplied to `generate()`. */
+type AgentCheckpointMode = "resume" | "fork";
+/**
+ * Declares one checkpoint format an agent can consume. Versions and modes are
+ * exact; isolated fork support must always be explicit.
+ */
+type AgentCheckpointCapability = {
+    codec: string;
+    versions: readonly number[];
+    modes: readonly AgentCheckpointMode[];
+};
+/** Declares checkpoint formats an agent can produce. */
+type AgentCheckpointFormat = {
+    codec: string;
+    versions: readonly number[];
+};
+/**
+ * A durability fence supplied to `generate()`. The agent must await the
+ * returned promise before treating the checkpoint as published. Resolution
+ * means the runtime durably stored the checkpoint while it still owned the
+ * invocation; rejection means publication failed or ownership was lost.
+ */
+type AgentCheckpointPublisher = (checkpoint: AgentCheckpoint) => Promise<void>;
+/** Optional checkpoint extension carried by an agent generation result. */
+type AgentCheckpointResult = {
+    checkpoint?: AgentCheckpoint;
+};
+
 /**
  * Loosely-typed generation options. The AI SDK passes a dynamic shape here
  * (GenerateTextOptions / StreamTextOptions and provider-specific extensions)
  * so we keep this permissive but avoid raw `any`.
  */
-type AgentGenerateOptions$2 = {
+type AgentGenerateOptionsBase = {
     prompt?: unknown;
     messages?: unknown;
     timeout?: unknown;
     abortSignal?: AbortSignal;
     rootDir?: string;
-    resumeSession?: string;
+    /** Awaited durability fence for publishing checkpoints during generation. */
+    onCheckpoint?: AgentCheckpointPublisher;
+    /** Effective per-run checkpoint ceiling, never above Smithers's system maximum. */
+    maxAgentCheckpointBytes?: number;
     maxOutputBytes?: number;
     onStdout?: (text: string) => void;
     onStderr?: (text: string) => void;
@@ -153,6 +200,22 @@ type AgentGenerateOptions$2 = {
     };
     [key: string]: unknown;
 };
+/**
+ * Continuation inputs are discriminated so a checkpoint always has an
+ * explicit mode and cannot be combined with a provider session id.
+ */
+type AgentCheckpointContinuationOptions = {
+    /** State captured from an earlier generation. */
+    resumeCheckpoint: AgentCheckpoint;
+    /** Whether the checkpoint continues one session or seeds an isolated fork. */
+    checkpointMode: AgentCheckpointMode;
+    resumeSession?: never;
+} | {
+    resumeCheckpoint?: never;
+    checkpointMode?: never;
+    resumeSession?: string;
+};
+type AgentGenerateOptions$2 = AgentGenerateOptionsBase & AgentCheckpointContinuationOptions;
 
 /**
  * @typedef {number | { totalMs?: number; idleMs?: number; } | undefined} TimeoutInput
@@ -487,4 +550,4 @@ type PiExtensionUiRequest = PiExtensionUiRequest$2;
 type PiExtensionUiResponse = PiExtensionUiResponse$2;
 type RunCommandResult = RunCommandResult$2;
 
-export { type AgentGenerateOptions$2 as A, type BaseCliAgentOptions$2 as B, type CliOutputInterpreter$2 as C, extractTextFromJsonValue as D, extractUsageFromOutput as E, isLikelyRuntimeMetadata as F, isRecord as G, normalizeCodexConfig as H, normalizeTokenUsage as I, pushFlag as J, pushList as K, resolveTimeouts as L, runAgentPromise as M, type NormalizedTokenUsage as N, runCommandEffect as O, type PiExtensionUiRequest$2 as P, runRpcCommandEffect as Q, type RunCommandResult as R, shouldSurfaceUnparsedStdout as S, toolKindFromName as T, truncate as U, truncateToBytes as V, tryParseJson as W, type BaseCliAgentOptions as a, type PiExtensionUiResponse$2 as b, BaseCliAgent as c, type CodexConfigOverrides$2 as d, type AgentCliEvent$1 as e, type CliOutputInterpreter as f, type AgentCliActionKind$2 as g, type AgentCliActionEvent as h, type AgentCliActionKind as i, type AgentCliActionPhase as j, type AgentCliCompletedEvent as k, type AgentCliEvent as l, type AgentCliEventLevel as m, type AgentCliStartedEvent as n, type AgentGenerateOptions as o, type CliUsageInfo as p, type CodexConfigOverrides as q, type PiExtensionUiRequest as r, type PiExtensionUiResponse as s, asNumber as t, asString as u, buildGenerateResult as v, combineNonEmpty as w, createAgentStdoutTextEmitter as x, createSyntheticIdGenerator as y, extractPrompt as z };
+export { runCommandEffect as $, type AgentCheckpointCapability as A, type BaseCliAgentOptions$2 as B, type CliOutputInterpreter$2 as C, type CliUsageInfo as D, type CodexConfigOverrides as E, type PiExtensionUiRequest as F, type PiExtensionUiResponse as G, asNumber as H, asString as I, buildGenerateResult as J, combineNonEmpty as K, createAgentStdoutTextEmitter as L, createSyntheticIdGenerator as M, type NormalizedTokenUsage as N, extractPrompt as O, type PiExtensionUiRequest$2 as P, extractTextFromJsonValue as Q, type RunCommandResult as R, extractUsageFromOutput as S, isLikelyRuntimeMetadata as T, isRecord as U, normalizeCodexConfig as V, normalizeTokenUsage as W, pushFlag as X, pushList as Y, resolveTimeouts as Z, runAgentPromise as _, type BaseCliAgentOptions as a, runRpcCommandEffect as a0, shouldSurfaceUnparsedStdout as a1, toolKindFromName as a2, truncate as a3, truncateToBytes as a4, tryParseJson as a5, type PiExtensionUiResponse$2 as b, type AgentCheckpointFormat as c, type AgentGenerateOptions$2 as d, BaseCliAgent as e, type CodexConfigOverrides$2 as f, type AgentCliEvent$1 as g, type CliOutputInterpreter as h, type AgentCheckpointMode as i, type AgentCheckpoint as j, type AgentCliActionKind$2 as k, type AgentCheckpointContinuationOptions as l, type AgentCheckpointJsonArray as m, type AgentCheckpointJsonObject as n, type AgentCheckpointJsonPrimitive as o, type AgentCheckpointJsonValue as p, type AgentCheckpointPublisher as q, type AgentCheckpointResult as r, type AgentCliActionEvent as s, type AgentCliActionKind as t, type AgentCliActionPhase as u, type AgentCliCompletedEvent as v, type AgentCliEvent as w, type AgentCliEventLevel as x, type AgentCliStartedEvent as y, type AgentGenerateOptions as z };

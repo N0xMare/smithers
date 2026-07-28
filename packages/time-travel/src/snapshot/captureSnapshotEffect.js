@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { nowMs } from "@smithers-orchestrator/scheduler/nowMs";
 import { snapshotsCaptured } from "../snapshotsCaptured.js";
 import { snapshotDuration } from "../snapshotDuration.js";
+import { captureAgentCheckpointProvenance } from "./agentCheckpointProvenance.js";
 /** @typedef {import("@smithers-orchestrator/db/adapter").SmithersDb} SmithersDb */
 /** @typedef {import("@smithers-orchestrator/errors/SmithersError").SmithersError} SmithersError */
 /** @typedef {import("./Snapshot.ts").Snapshot} Snapshot */
@@ -227,7 +228,16 @@ export function captureSnapshot(adapter, runId, frameNo, data, options = {}) {
         ),
       catch: (cause) => cause,
     });
-    const snapshotOutputs = { ...data.outputs, __smithersSignalProvenanceHorizon: signalHorizon };
+    const agentCheckpointCapture = yield* Effect.tryPromise({
+      try: () => captureAgentCheckpointProvenance(adapter, runId, data.nodes),
+      catch: (cause) => cause,
+    });
+    const snapshotOutputs = {
+      ...data.outputs,
+      __smithersSignalProvenanceHorizon: signalHorizon,
+      __smithersAgentCheckpointHorizons: agentCheckpointCapture.horizons,
+      __smithersAgentCheckpointProvenance: agentCheckpointCapture.provenance,
+    };
     const outputsJson = JSON.stringify(snapshotOutputs);
     const ralphJson = JSON.stringify(data.ralph);
     const inputJson = JSON.stringify(data.input);

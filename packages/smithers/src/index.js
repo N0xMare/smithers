@@ -1,5 +1,16 @@
 // @smithers-type-exports-begin
 /** @typedef {import("@smithers-orchestrator/agents/capability-registry").AgentCapabilityRegistry} AgentCapabilityRegistry */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpoint} AgentCheckpoint */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointCapability} AgentCheckpointCapability */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointContinuationOptions} AgentCheckpointContinuationOptions */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointFormat} AgentCheckpointFormat */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointJsonArray} AgentCheckpointJsonArray */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointJsonObject} AgentCheckpointJsonObject */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointJsonPrimitive} AgentCheckpointJsonPrimitive */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointJsonValue} AgentCheckpointJsonValue */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointMode} AgentCheckpointMode */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointPublisher} AgentCheckpointPublisher */
+/** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointResult} AgentCheckpointResult */
 /** @typedef {import("@smithers-orchestrator/agents/AgentLike").AgentLike} AgentLike */
 /** @typedef {import("@smithers-orchestrator/agents/capability-registry").AgentToolDescriptor} AgentToolDescriptor */
 /** @typedef {import("@smithers-orchestrator/scorers").AggregateOptions} AggregateOptions */
@@ -339,6 +350,11 @@ export {
   OpenCodeAgent,
   PoolAgent,
   createHttpTool,
+  agentProducesCheckpoint,
+  agentSupportsCheckpoint,
+  cloneAgentCheckpoint,
+  DEFAULT_AGENT_CHECKPOINT_MAX_BYTES,
+  hashAgentCheckpointCapabilities,
 } from "@smithers-orchestrator/agents";
 // VCS
 export {

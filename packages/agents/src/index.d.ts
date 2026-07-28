@@ -1,6 +1,6 @@
 import * as ai from 'ai';
 import { Tool as Tool$1, ToolSet, ToolLoopAgentSettings, LanguageModel, ToolLoopAgent } from 'ai';
-import { B as BaseCliAgentOptions, a as BaseCliAgentOptions$1, P as PiExtensionUiRequest$1, b as PiExtensionUiResponse$1, A as AgentGenerateOptions$3, c as BaseCliAgent, C as CliOutputInterpreter$e, d as CodexConfigOverrides, e as AgentCliEvent$1, f as CliOutputInterpreter$f, g as AgentCliActionKind } from './index-CN9hS6LR.js';
+import { B as BaseCliAgentOptions, a as BaseCliAgentOptions$1, P as PiExtensionUiRequest$1, b as PiExtensionUiResponse$1, A as AgentCheckpointCapability$1, c as AgentCheckpointFormat$1, d as AgentGenerateOptions$3, e as BaseCliAgent, C as CliOutputInterpreter$e, f as CodexConfigOverrides, g as AgentCliEvent$1, h as CliOutputInterpreter$f, i as AgentCheckpointMode$1, j as AgentCheckpoint$1, k as AgentCliActionKind, l as AgentCheckpointContinuationOptions$1, m as AgentCheckpointJsonArray$1, n as AgentCheckpointJsonObject$1, o as AgentCheckpointJsonPrimitive$1, p as AgentCheckpointJsonValue$1, q as AgentCheckpointPublisher$1, r as AgentCheckpointResult$1 } from './index-CKscU_SV.js';
 import * as zod from 'zod';
 import '@smithers-orchestrator/errors/SmithersError';
 import 'effect';
@@ -536,6 +536,10 @@ type AgentLike$1 = {
     capabilities?: AgentCapabilityRegistry$a;
     /** True when the agent consumes outputSchema through a native structured-output API. */
     supportsNativeStructuredOutput?: boolean;
+    /** Version- and mode-aware checkpoint formats this agent can consume. */
+    checkpointCapabilities?: readonly AgentCheckpointCapability$1[];
+    /** Checkpoint formats this agent may return or publish during generation. */
+    checkpointFormats?: readonly AgentCheckpointFormat$1[];
     /**
      * Performs deterministic startup checks before the first generation call in a
      * workflow run. A rejected promise fails the task without retrying.
@@ -552,7 +556,8 @@ type AgentLike$1 = {
      * @param args.onStdout - Callback for streaming standard output text
      * @param args.onStderr - Callback for streaming standard error text
      * @param args.outputSchema - Optional Zod schema defining the expected structured output format
-     * @returns A promise resolving to the generated output
+     * @returns A promise resolving to the generated output. Results may include
+     * an optional `checkpoint: AgentCheckpoint` for a later resume or fork.
      */
     generate: (args?: AgentGenerateOptions$3) => Promise<unknown>;
 };
@@ -1475,6 +1480,55 @@ type ElevenLabsTextToSpeechToolset = {
 };
 declare function createElevenLabsTextToSpeechTool(options: ElevenLabsTextToSpeechToolOptions): ElevenLabsTextToSpeechToolset;
 
+/**
+ * Hash the semantic checkpoint production and consumption declarations.
+ * Declaration order, repeated entries, and repeated values are ignored.
+ *
+ * @param {{ checkpointFormats?: readonly import("./AgentCheckpoint.ts").AgentCheckpointFormat[]; checkpointCapabilities?: readonly import("./AgentCheckpoint.ts").AgentCheckpointCapability[] } | null | undefined} agent
+ * @returns {string}
+ */
+declare function hashAgentCheckpointCapabilities(agent: {
+    checkpointFormats?: readonly AgentCheckpointFormat$1[];
+    checkpointCapabilities?: readonly AgentCheckpointCapability$1[];
+} | null | undefined): string;
+/**
+ * Test whether an agent declares support for a checkpoint version and use.
+ * @param {{ checkpointCapabilities?: readonly import("./AgentCheckpoint.ts").AgentCheckpointCapability[] } | null | undefined} agent
+ * @param {{ codec: string; version: number }} checkpoint
+ * @param {import("./AgentCheckpoint.ts").AgentCheckpointMode} mode
+ */
+declare function agentSupportsCheckpoint(agent: {
+    checkpointCapabilities?: readonly AgentCheckpointCapability$1[];
+} | null | undefined, checkpoint: {
+    codec: string;
+    version: number;
+}, mode: AgentCheckpointMode$1): boolean;
+/**
+ * Test whether an agent declares that it can produce a checkpoint format.
+ * Production is intentionally independent from resume and fork consumption.
+ * @param {{ checkpointFormats?: readonly import("./AgentCheckpoint.ts").AgentCheckpointFormat[] } | null | undefined} agent
+ * @param {{ codec: string; version: number }} checkpoint
+ */
+declare function agentProducesCheckpoint(agent: {
+    checkpointFormats?: readonly AgentCheckpointFormat$1[];
+} | null | undefined, checkpoint: {
+    codec: string;
+    version: number;
+}): boolean;
+/**
+ * Validate, serialize, and clone an agent checkpoint.
+ *
+ * The JSON walk is intentionally stricter than JSON.stringify: values that
+ * JSON.stringify would silently omit or coerce are rejected.
+ *
+ * @param {import("./AgentCheckpoint.ts").AgentCheckpoint} checkpoint
+ * @param {number} [maxBytes]
+ * @returns {import("./AgentCheckpoint.ts").AgentCheckpoint}
+ */
+declare function cloneAgentCheckpoint(checkpoint: AgentCheckpoint$1, maxBytes?: number): AgentCheckpoint$1;
+/** Maximum encoded checkpoint size accepted by default (16 MiB). */
+declare const DEFAULT_AGENT_CHECKPOINT_MAX_BYTES: number;
+
 /** @typedef {import("./capability-registry/AgentCapabilityRegistry.ts").AgentCapabilityRegistry} AgentCapabilityRegistry */
 /** @typedef {import("./BaseCliAgent/CliOutputInterpreter.ts").CliOutputInterpreter} CliOutputInterpreter */
 /** @typedef {import("./HermesCliAgentOptions.ts").HermesCliAgentOptions} HermesCliAgentOptions */
@@ -1907,6 +1961,17 @@ type GroundedWebSearchProvider = GroundedWebSearchProvider$5;
 type AgentCapabilityRegistry = AgentCapabilityRegistry$c;
 type AgentGenerateOptions = AgentGenerateOptions$3;
 type AgentLike = AgentLike$1;
+type AgentCheckpoint = AgentCheckpoint$1;
+type AgentCheckpointCapability = AgentCheckpointCapability$1;
+type AgentCheckpointFormat = AgentCheckpointFormat$1;
+type AgentCheckpointJsonArray = AgentCheckpointJsonArray$1;
+type AgentCheckpointJsonObject = AgentCheckpointJsonObject$1;
+type AgentCheckpointJsonPrimitive = AgentCheckpointJsonPrimitive$1;
+type AgentCheckpointJsonValue = AgentCheckpointJsonValue$1;
+type AgentCheckpointMode = AgentCheckpointMode$1;
+type AgentCheckpointPublisher = AgentCheckpointPublisher$1;
+type AgentCheckpointResult = AgentCheckpointResult$1;
+type AgentCheckpointContinuationOptions = AgentCheckpointContinuationOptions$1;
 type AgentToolDescriptor = AgentToolDescriptor$1;
 type AnthropicAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = AnthropicAgentOptions$2<CALL_OPTIONS, TOOLS>;
 type OpenAIAgentOptions<CALL_OPTIONS = never, TOOLS = ai.ToolSet> = OpenAIAgentOptions$2<CALL_OPTIONS, TOOLS>;
@@ -1951,4 +2016,4 @@ type TranscriptionProvider = TranscriptionProvider$1;
 type TranscriptionToolInput = TranscriptionToolInput$1;
 type TranscriptionToolResult = TranscriptionToolResult$1;
 
-export { type AgentCapabilityRegistry, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, type AudioHostResolver, BaseCliAgent, CLI_AGENT_SURFACE_MANIFEST, ClaudeCodeAgent, type CliAgentCapabilityAdapterId, type CliAgentCapabilityDoctorEntry, type CliAgentCapabilityDoctorReport, type CliAgentCapabilityIssue, type CliAgentCapabilityReportEntry, type CliAgentSurfaceManifestEntry, type CliAgentSurfaceOptionMapping, type CliAgentSurfaceResumeContract, type CliAgentUnsupportedFlag, CodexAgent, type CreateHttpToolOptions, type CreateTranscriptionToolOptions, CursorAgent, type CursorAgentOptions, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, HermesCliAgent, type HermesCliAgentOptions, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type ImageGenerationProvider, type ImageGenerationRequest, type ImageGenerationResult, type ImageGenerationToolOptions, KimiAgent, OmpAgent, OpenAIAgent, type OpenAIAgentOptions, OpenClawAgent, type OpenClawAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type PinnedAudioTransport, type PinnedAudioTransportRequest, PoolAgent, type PoolAgentOptions, type ResolvedAudioAddress, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, type TranscriptionProvider, type TranscriptionToolInput, type TranscriptionToolResult, VibeAgent, type VibeAgentOptions, createBraveSearchProvider, createElevenLabsTextToSpeechTool, createExaSearchProvider, createGroundedWebSearchToolset, createHermesCliCapabilityRegistry, createHttpTool, createImageGenerationTool, createOmpCapabilityRegistry, createOpenClawCapabilityRegistry, createPoolCapabilityRegistry, createSerperSearchProvider, createSmithersAgentContract, createTavilySearchProvider, createTranscriptionTool, formatCliAgentCapabilityDoctorReport, getCliAgentCapabilityDoctorReport, getCliAgentCapabilityReport, getCliAgentSurfaceManifestEntry, hashCapabilityRegistry, listCliAgentSurfaceManifests, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
+export { type AgentCapabilityRegistry, type AgentCheckpoint, type AgentCheckpointCapability, type AgentCheckpointContinuationOptions, type AgentCheckpointFormat, type AgentCheckpointJsonArray, type AgentCheckpointJsonObject, type AgentCheckpointJsonPrimitive, type AgentCheckpointJsonValue, type AgentCheckpointMode, type AgentCheckpointPublisher, type AgentCheckpointResult, type AgentGenerateOptions, type AgentLike, type AgentToolDescriptor, AmpAgent, AnthropicAgent, type AnthropicAgentOptions, AntigravityAgent, type AudioHostResolver, BaseCliAgent, CLI_AGENT_SURFACE_MANIFEST, ClaudeCodeAgent, type CliAgentCapabilityAdapterId, type CliAgentCapabilityDoctorEntry, type CliAgentCapabilityDoctorReport, type CliAgentCapabilityIssue, type CliAgentCapabilityReportEntry, type CliAgentSurfaceManifestEntry, type CliAgentSurfaceOptionMapping, type CliAgentSurfaceResumeContract, type CliAgentUnsupportedFlag, CodexAgent, type CreateHttpToolOptions, type CreateTranscriptionToolOptions, CursorAgent, type CursorAgentOptions, DEFAULT_AGENT_CHECKPOINT_MAX_BYTES, ForgeAgent, GeminiAgent, HermesAgent, type HermesAgentOptions, HermesCliAgent, type HermesCliAgentOptions, type HttpToolAuth, type HttpToolInput, type HttpToolOutput, type ImageGenerationProvider, type ImageGenerationRequest, type ImageGenerationResult, type ImageGenerationToolOptions, KimiAgent, OmpAgent, OpenAIAgent, type OpenAIAgentOptions, OpenClawAgent, type OpenClawAgentOptions, OpenCodeAgent, type OpenCodeAgentOptions, PiAgent, type PiAgentOptions, type PiExtensionUiRequest, type PiExtensionUiResponse, type PinnedAudioTransport, type PinnedAudioTransportRequest, PoolAgent, type PoolAgentOptions, type ResolvedAudioAddress, type SmithersAgentContract, type SmithersAgentContractTool, type SmithersAgentToolCategory, type SmithersListedTool, type SmithersToolSurface, type TranscriptionProvider, type TranscriptionToolInput, type TranscriptionToolResult, VibeAgent, type VibeAgentOptions, agentProducesCheckpoint, agentSupportsCheckpoint, cloneAgentCheckpoint, createBraveSearchProvider, createElevenLabsTextToSpeechTool, createExaSearchProvider, createGroundedWebSearchToolset, createHermesCliCapabilityRegistry, createHttpTool, createImageGenerationTool, createOmpCapabilityRegistry, createOpenClawCapabilityRegistry, createPoolCapabilityRegistry, createSerperSearchProvider, createSmithersAgentContract, createTavilySearchProvider, createTranscriptionTool, formatCliAgentCapabilityDoctorReport, getCliAgentCapabilityDoctorReport, getCliAgentCapabilityReport, getCliAgentSurfaceManifestEntry, hashAgentCheckpointCapabilities, hashCapabilityRegistry, listCliAgentSurfaceManifests, renderSmithersAgentPromptGuidance, sanitizeForOpenAI, zodToOpenAISchema };
