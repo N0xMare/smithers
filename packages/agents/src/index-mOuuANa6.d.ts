@@ -4,6 +4,145 @@ import { SmithersError as SmithersError$1 } from '@smithers-orchestrator/errors/
 import { Effect } from 'effect';
 import { spawn } from 'node:child_process';
 
+type AgentCheckpointJsonPrimitive = null | boolean | number | string;
+type AgentCheckpointJsonArray = AgentCheckpointJsonValue[];
+type AgentCheckpointJsonObject = {
+    [key: string]: AgentCheckpointJsonValue;
+};
+/** A strict, recursively JSON-serializable value. */
+type AgentCheckpointJsonValue = AgentCheckpointJsonPrimitive | AgentCheckpointJsonArray | AgentCheckpointJsonObject;
+/**
+ * Versioned state returned by an agent and supplied to a later generation.
+ * Smithers validates and persists `payload` as JSON but never interprets it.
+ */
+type AgentCheckpoint = {
+    codec: string;
+    version: number;
+    payload: AgentCheckpointJsonValue;
+};
+/** Identifies why a saved checkpoint is being supplied to `generate()`. */
+type AgentCheckpointMode = "resume" | "fork";
+/**
+ * Declares one checkpoint format an agent can consume. Versions and modes are
+ * exact; isolated fork support must always be explicit.
+ */
+type AgentCheckpointCapability = {
+    codec: string;
+    versions: readonly number[];
+    modes: readonly AgentCheckpointMode[];
+};
+/** Declares checkpoint formats an agent can produce. */
+type AgentCheckpointFormat = {
+    codec: string;
+    versions: readonly number[];
+};
+/**
+ * A durability fence supplied to `generate()`. The agent must await the
+ * returned promise before treating the checkpoint as published. Resolution
+ * means the runtime durably stored the checkpoint while it still owned the
+ * invocation; rejection means publication failed or ownership was lost.
+ */
+type AgentCheckpointPublisher = (checkpoint: AgentCheckpoint) => Promise<void>;
+/** Optional checkpoint extension carried by an agent generation result. */
+type AgentCheckpointResult = {
+    checkpoint?: AgentCheckpoint;
+};
+
+type AgentCliActionKind$2 = "turn" | "command" | "tool" | "file_change" | "web_search" | "todo_list" | "reasoning" | "warning" | "note";
+
+type AgentCliActionPhase$1 = "started" | "updated" | "completed";
+type AgentCliEventLevel$1 = "debug" | "info" | "warning" | "error";
+type AgentCliStartedEvent$1 = {
+    type: "started";
+    engine: string;
+    title: string;
+    resume?: string;
+    detail?: Record<string, unknown>;
+};
+type AgentCliActionEvent$1 = {
+    type: "action";
+    engine: string;
+    phase: AgentCliActionPhase$1;
+    entryType?: "thought" | "message";
+    action: {
+        id: string;
+        kind: AgentCliActionKind$2;
+        title: string;
+        detail?: Record<string, unknown>;
+    };
+    message?: string;
+    ok?: boolean;
+    level?: AgentCliEventLevel$1;
+};
+type AgentCliCompletedEvent$1 = {
+    type: "completed";
+    engine: string;
+    ok: boolean;
+    answer?: string;
+    error?: string;
+    resume?: string;
+    usage?: Record<string, unknown>;
+};
+type AgentCliEvent$1 = AgentCliStartedEvent$1 | AgentCliActionEvent$1 | AgentCliCompletedEvent$1;
+
+/**
+ * Loosely-typed generation options. The AI SDK passes a dynamic shape here
+ * (GenerateTextOptions / StreamTextOptions and provider-specific extensions)
+ * so we keep this permissive but avoid raw `any`.
+ */
+type AgentGenerateOptionsBase = {
+    prompt?: unknown;
+    messages?: unknown;
+    timeout?: unknown;
+    abortSignal?: AbortSignal;
+    rootDir?: string;
+    /** Awaited durability fence for publishing checkpoints during generation. */
+    onCheckpoint?: AgentCheckpointPublisher;
+    /** Effective per-run checkpoint ceiling, never above Smithers's system maximum. */
+    maxAgentCheckpointBytes?: number;
+    maxOutputBytes?: number;
+    onStdout?: (text: string) => void;
+    onStderr?: (text: string) => void;
+    onEvent?: (event: AgentCliEvent$1) => unknown;
+    onProcess?: (event: {
+        phase: "started" | "exited";
+        pid: number | undefined;
+    }) => void;
+    retry?: unknown;
+    isRetry?: unknown;
+    retryAttempt?: unknown;
+    schemaRetry?: unknown;
+    /**
+     * Run context for the task this agent invocation belongs to. Surfaced to the
+     * spawned agent process (and its subprocesses) as SMITHERS_RUN_ID / NODE_ID /
+     * ITERATION / ATTEMPT so the agent can address its own run — e.g. to raise a
+     * blocking `smithers ask-human` request.
+     */
+    taskContext?: {
+        runId?: string;
+        nodeId?: string;
+        iteration?: number;
+        attempt?: number;
+    };
+    [key: string]: unknown;
+};
+/**
+ * Continuation inputs are discriminated so a checkpoint always has an
+ * explicit mode and cannot be combined with a provider session id.
+ */
+type AgentCheckpointContinuationOptions = {
+    /** State captured from an earlier generation. */
+    resumeCheckpoint: AgentCheckpoint;
+    /** Whether the checkpoint continues one session or seeds an isolated fork. */
+    checkpointMode: AgentCheckpointMode;
+    resumeSession?: never;
+} | {
+    resumeCheckpoint?: never;
+    checkpointMode?: never;
+    resumeSession?: string;
+};
+type AgentGenerateOptions$2 = AgentGenerateOptionsBase & AgentCheckpointContinuationOptions;
+
 type BaseCliAgentOptions$2 = {
     id?: string;
     model?: string;
@@ -72,150 +211,11 @@ type CliUsageInfo$2 = {
     reasoningTokens?: number;
 };
 
-type AgentCliActionKind$2 = "turn" | "command" | "tool" | "file_change" | "web_search" | "todo_list" | "reasoning" | "warning" | "note";
-
-type AgentCliActionPhase$1 = "started" | "updated" | "completed";
-type AgentCliEventLevel$1 = "debug" | "info" | "warning" | "error";
-type AgentCliStartedEvent$1 = {
-    type: "started";
-    engine: string;
-    title: string;
-    resume?: string;
-    detail?: Record<string, unknown>;
-};
-type AgentCliActionEvent$1 = {
-    type: "action";
-    engine: string;
-    phase: AgentCliActionPhase$1;
-    entryType?: "thought" | "message";
-    action: {
-        id: string;
-        kind: AgentCliActionKind$2;
-        title: string;
-        detail?: Record<string, unknown>;
-    };
-    message?: string;
-    ok?: boolean;
-    level?: AgentCliEventLevel$1;
-};
-type AgentCliCompletedEvent$1 = {
-    type: "completed";
-    engine: string;
-    ok: boolean;
-    answer?: string;
-    error?: string;
-    resume?: string;
-    usage?: Record<string, unknown>;
-};
-type AgentCliEvent$1 = AgentCliStartedEvent$1 | AgentCliActionEvent$1 | AgentCliCompletedEvent$1;
-
 type CliOutputInterpreter$2 = {
     onStdoutLine?: (line: string) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
     onStderrLine?: (line: string) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
     onExit?: (result: RunCommandResult$2) => AgentCliEvent$1[] | AgentCliEvent$1 | null | undefined;
 };
-
-type AgentCheckpointJsonPrimitive = null | boolean | number | string;
-type AgentCheckpointJsonArray = AgentCheckpointJsonValue[];
-type AgentCheckpointJsonObject = {
-    [key: string]: AgentCheckpointJsonValue;
-};
-/** A strict, recursively JSON-serializable value. */
-type AgentCheckpointJsonValue = AgentCheckpointJsonPrimitive | AgentCheckpointJsonArray | AgentCheckpointJsonObject;
-/**
- * Versioned state returned by an agent and supplied to a later generation.
- * Smithers validates and persists `payload` as JSON but never interprets it.
- */
-type AgentCheckpoint = {
-    codec: string;
-    version: number;
-    payload: AgentCheckpointJsonValue;
-};
-/** Identifies why a saved checkpoint is being supplied to `generate()`. */
-type AgentCheckpointMode = "resume" | "fork";
-/**
- * Declares one checkpoint format an agent can consume. Versions and modes are
- * exact; isolated fork support must always be explicit.
- */
-type AgentCheckpointCapability = {
-    codec: string;
-    versions: readonly number[];
-    modes: readonly AgentCheckpointMode[];
-};
-/** Declares checkpoint formats an agent can produce. */
-type AgentCheckpointFormat = {
-    codec: string;
-    versions: readonly number[];
-};
-/**
- * A durability fence supplied to `generate()`. The agent must await the
- * returned promise before treating the checkpoint as published. Resolution
- * means the runtime durably stored the checkpoint while it still owned the
- * invocation; rejection means publication failed or ownership was lost.
- */
-type AgentCheckpointPublisher = (checkpoint: AgentCheckpoint) => Promise<void>;
-/** Optional checkpoint extension carried by an agent generation result. */
-type AgentCheckpointResult = {
-    checkpoint?: AgentCheckpoint;
-};
-
-/**
- * Loosely-typed generation options. The AI SDK passes a dynamic shape here
- * (GenerateTextOptions / StreamTextOptions and provider-specific extensions)
- * so we keep this permissive but avoid raw `any`.
- */
-type AgentGenerateOptionsBase = {
-    prompt?: unknown;
-    messages?: unknown;
-    timeout?: unknown;
-    abortSignal?: AbortSignal;
-    rootDir?: string;
-    /** Awaited durability fence for publishing checkpoints during generation. */
-    onCheckpoint?: AgentCheckpointPublisher;
-    /** Effective per-run checkpoint ceiling, never above Smithers's system maximum. */
-    maxAgentCheckpointBytes?: number;
-    maxOutputBytes?: number;
-    onStdout?: (text: string) => void;
-    onStderr?: (text: string) => void;
-    onEvent?: (event: AgentCliEvent$1) => unknown;
-    onProcess?: (event: {
-        phase: "started" | "exited";
-        pid: number | undefined;
-    }) => void;
-    retry?: unknown;
-    isRetry?: unknown;
-    retryAttempt?: unknown;
-    schemaRetry?: unknown;
-    /**
-     * Run context for the task this agent invocation belongs to. Surfaced to the
-     * spawned agent process (and its subprocesses) as SMITHERS_RUN_ID / NODE_ID /
-     * ITERATION / ATTEMPT so the agent can address its own run — e.g. to raise a
-     * blocking `smithers ask-human` request.
-     */
-    taskContext?: {
-        runId?: string;
-        nodeId?: string;
-        iteration?: number;
-        attempt?: number;
-    };
-    [key: string]: unknown;
-};
-/**
- * Continuation inputs are discriminated so a checkpoint always has an
- * explicit mode and cannot be combined with a provider session id.
- */
-type AgentCheckpointContinuationOptions = {
-    /** State captured from an earlier generation. */
-    resumeCheckpoint: AgentCheckpoint;
-    /** Whether the checkpoint continues one session or seeds an isolated fork. */
-    checkpointMode: AgentCheckpointMode;
-    resumeSession?: never;
-} | {
-    resumeCheckpoint?: never;
-    checkpointMode?: never;
-    resumeSession?: string;
-};
-type AgentGenerateOptions$2 = AgentGenerateOptionsBase & AgentCheckpointContinuationOptions;
 
 /**
  * @typedef {number | { totalMs?: number; idleMs?: number; } | undefined} TimeoutInput
@@ -550,4 +550,4 @@ type PiExtensionUiRequest = PiExtensionUiRequest$2;
 type PiExtensionUiResponse = PiExtensionUiResponse$2;
 type RunCommandResult = RunCommandResult$2;
 
-export { runCommandEffect as $, type AgentCheckpointCapability as A, type BaseCliAgentOptions$2 as B, type CliOutputInterpreter$2 as C, type CliUsageInfo as D, type CodexConfigOverrides as E, type PiExtensionUiRequest as F, type PiExtensionUiResponse as G, asNumber as H, asString as I, buildGenerateResult as J, combineNonEmpty as K, createAgentStdoutTextEmitter as L, createSyntheticIdGenerator as M, type NormalizedTokenUsage as N, extractPrompt as O, type PiExtensionUiRequest$2 as P, extractTextFromJsonValue as Q, type RunCommandResult as R, extractUsageFromOutput as S, isLikelyRuntimeMetadata as T, isRecord as U, normalizeCodexConfig as V, normalizeTokenUsage as W, pushFlag as X, pushList as Y, resolveTimeouts as Z, runAgentPromise as _, type BaseCliAgentOptions as a, runRpcCommandEffect as a0, shouldSurfaceUnparsedStdout as a1, toolKindFromName as a2, truncate as a3, truncateToBytes as a4, tryParseJson as a5, type PiExtensionUiResponse$2 as b, type AgentCheckpointFormat as c, type AgentGenerateOptions$2 as d, BaseCliAgent as e, type CodexConfigOverrides$2 as f, type AgentCliEvent$1 as g, type CliOutputInterpreter as h, type AgentCheckpointMode as i, type AgentCheckpoint as j, type AgentCliActionKind$2 as k, type AgentCheckpointContinuationOptions as l, type AgentCheckpointJsonArray as m, type AgentCheckpointJsonObject as n, type AgentCheckpointJsonPrimitive as o, type AgentCheckpointJsonValue as p, type AgentCheckpointPublisher as q, type AgentCheckpointResult as r, type AgentCliActionEvent as s, type AgentCliActionKind as t, type AgentCliActionPhase as u, type AgentCliCompletedEvent as v, type AgentCliEvent as w, type AgentCliEventLevel as x, type AgentCliStartedEvent as y, type AgentGenerateOptions as z };
+export { runCommandEffect as $, type AgentGenerateOptions$2 as A, type BaseCliAgentOptions$2 as B, type CliOutputInterpreter$2 as C, type CliUsageInfo as D, type CodexConfigOverrides as E, type PiExtensionUiRequest as F, type PiExtensionUiResponse as G, asNumber as H, asString as I, buildGenerateResult as J, combineNonEmpty as K, createAgentStdoutTextEmitter as L, createSyntheticIdGenerator as M, type NormalizedTokenUsage as N, extractPrompt as O, type PiExtensionUiRequest$2 as P, extractTextFromJsonValue as Q, type RunCommandResult as R, extractUsageFromOutput as S, isLikelyRuntimeMetadata as T, isRecord as U, normalizeCodexConfig as V, normalizeTokenUsage as W, pushFlag as X, pushList as Y, resolveTimeouts as Z, runAgentPromise as _, type AgentCheckpoint as a, runRpcCommandEffect as a0, shouldSurfaceUnparsedStdout as a1, toolKindFromName as a2, truncate as a3, truncateToBytes as a4, tryParseJson as a5, type BaseCliAgentOptions as b, type PiExtensionUiResponse$2 as c, type AgentCheckpointCapability as d, type AgentCheckpointFormat as e, BaseCliAgent as f, type CodexConfigOverrides$2 as g, type AgentCliEvent$1 as h, type CliOutputInterpreter as i, type AgentCheckpointResult as j, type AgentCheckpointMode as k, type AgentCliActionKind$2 as l, type AgentCheckpointContinuationOptions as m, type AgentCheckpointJsonArray as n, type AgentCheckpointJsonObject as o, type AgentCheckpointJsonPrimitive as p, type AgentCheckpointJsonValue as q, type AgentCheckpointPublisher as r, type AgentCliActionEvent as s, type AgentCliActionKind as t, type AgentCliActionPhase as u, type AgentCliCompletedEvent as v, type AgentCliEvent as w, type AgentCliEventLevel as x, type AgentCliStartedEvent as y, type AgentGenerateOptions as z };
