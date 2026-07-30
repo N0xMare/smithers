@@ -48,7 +48,7 @@ import { resolve, join } from "node:path";
 import { SmithersError } from "@smithers-orchestrator/errors/SmithersError";
 import { assertZodV4 } from "@smithers-orchestrator/errors/assertZodV4";
 import { findSmithersAnchorDir } from "./findSmithersAnchorDir.js";
-import { prepareOutputSchemas } from "./prepareOutputSchemas.js";
+import { assertNoReservedPublicOutputNames, prepareOutputSchemas } from "./prepareOutputSchemas.js";
 import { acquireSharedPostgresPool } from "./sharedPostgresPool.js";
 /** @typedef {import("@smithers-orchestrator/components").ApprovalProps<any, any>} ApprovalProps */
 /** @typedef {import("@smithers-orchestrator/components").SandboxProps} SandboxProps */
@@ -376,6 +376,7 @@ function buildSmithersApi(config) {
  * ```
  */
 export function createSmithers(schemas, opts) {
+  assertNoReservedPublicOutputNames(schemas);
   // Honor an explicitly requested backend instead of silently opening
   // bun:sqlite. `createSmithers` is the synchronous SQLite path; PGlite and
   // Postgres provision over the wire asynchronously, so a workflow that wants
@@ -564,6 +565,7 @@ async function syncZodTableSchemaStorage(storage, tableName, schema, opts) {
  * @returns {Promise<import("./CreateSmithersApi.ts").CreateSmithersApi<Schemas> & { close?: () => Promise<void> }>}
  */
 export async function createSmithersCloudflare(schemas, opts) {
+  assertNoReservedPublicOutputNames(schemas);
   if (!opts?.db) {
     throw new SmithersError(
       "INVALID_INPUT",

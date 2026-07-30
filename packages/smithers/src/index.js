@@ -11,6 +11,7 @@
 /** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointMode} AgentCheckpointMode */
 /** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointPublisher} AgentCheckpointPublisher */
 /** @typedef {import("@smithers-orchestrator/agents").AgentCheckpointResult} AgentCheckpointResult */
+/** @typedef {import("@smithers-orchestrator/agents").AgentGenerateOptions} AgentGenerateOptions */
 /** @typedef {import("@smithers-orchestrator/agents/AgentLike").AgentLike} AgentLike */
 /** @typedef {import("@smithers-orchestrator/agents/capability-registry").AgentToolDescriptor} AgentToolDescriptor */
 /** @typedef {import("@smithers-orchestrator/scorers").AggregateOptions} AggregateOptions */
