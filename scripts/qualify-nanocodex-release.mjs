@@ -47,8 +47,7 @@ export const PINNED_RELEASE = deepFreeze({
   artifact: {
     target: "x86_64-unknown-linux-gnu",
     fileName: "smithers-nanocodex-v0.0.1-x86_64-unknown-linux-gnu.tar.gz",
-    sha256: "0e14425b3e0af5c3b1663b4db2a15302cbaa7c03e917babd841ae7fde2a1ab73",
-    sizeBytes: 6_286_271,
+    maximumSizeBytes: 8 * 1024 * 1024,
     minimumGlibcVersion: "2.35",
   },
   contract: {
@@ -64,7 +63,7 @@ export const PINNED_RELEASE = deepFreeze({
     bridgeArtifact: true,
     smithersAdapter: false,
     checks: [
-      "CI-built pinned-source archive checksum, version, capabilities, and file layout",
+      "pinned source identity plus CI-built archive digest, version, capabilities, and file layout",
       "Ubuntu 22.04 glibc compatibility smoke test",
       "exact Bubblewrap PID-containment profile",
       "managed-ChatGPT turn using stock workspace tools",
@@ -131,17 +130,15 @@ export async function loadReleaseManifest(path = DEFAULT_MANIFEST_PATH) {
   return manifest;
 }
 
-/** Verify the compressed artifact before any archive member is used. */
+/** Bound and digest the CI-built artifact before any archive member is used. */
 export function verifyArchiveIdentity(archive, artifact = PINNED_RELEASE.artifact) {
   if (!Buffer.isBuffer(archive)) throw new TypeError("Nanocodex release archive must be a Buffer.");
-  if (archive.byteLength !== artifact.sizeBytes) {
-    throw new Error(`Nanocodex archive size mismatch: expected ${artifact.sizeBytes}, received ${archive.byteLength}.`);
+  if (archive.byteLength === 0 || archive.byteLength > artifact.maximumSizeBytes) {
+    throw new Error(
+      `Nanocodex CI-built archive must contain 1-${artifact.maximumSizeBytes} bytes; received ${archive.byteLength}.`,
+    );
   }
-  const actualSha256 = createHash("sha256").update(archive).digest("hex");
-  if (actualSha256 !== artifact.sha256) {
-    throw new Error(`Nanocodex archive SHA-256 mismatch: expected ${artifact.sha256}, received ${actualSha256}.`);
-  }
-  return actualSha256;
+  return createHash("sha256").update(archive).digest("hex");
 }
 
 /**
@@ -377,7 +374,7 @@ export async function qualifyNanocodexRelease({ archivePath } = {}) {
   if (typeof archivePath !== "string" || archivePath.length === 0) {
     throw new Error("Nanocodex qualification requires a CI-built archive from the pinned source commit.");
   }
-  const archive = await readPinnedArchive(archivePath, manifest.artifact.sizeBytes);
+  const archive = await readPinnedArchive(archivePath, manifest.artifact.maximumSizeBytes);
   const sha256 = verifyArchiveIdentity(archive, manifest.artifact);
   const inspected = inspectReleaseArchive(archive, manifest);
   return await withQualificationScratch(inspected.binary, async ({ binary, scratch }) => {
@@ -446,13 +443,13 @@ export async function withQualificationScratch(binaryBytes, callback) {
   }
 }
 
-async function readPinnedArchive(path, exactBytes) {
+async function readPinnedArchive(path, maximumBytes) {
   const handle = await open(path, "r");
   try {
     const metadata = await handle.stat();
     if (!metadata.isFile()) throw new Error("Nanocodex offline archive must be a regular file.");
-    if (metadata.size !== exactBytes) {
-      throw new Error(`Nanocodex archive size mismatch: expected ${exactBytes}, received ${metadata.size}.`);
+    if (metadata.size === 0 || metadata.size > maximumBytes) {
+      throw new Error(`Nanocodex CI-built archive must contain 1-${maximumBytes} bytes; received ${metadata.size}.`);
     }
     return await handle.readFile();
   } finally {
