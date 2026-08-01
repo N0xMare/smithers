@@ -271,7 +271,7 @@ function durationToMs(input) {
     return Math.max(0, Math.floor(input));
   }
   try {
-    return Math.max(0, Math.floor(Duration.toMillis(Duration.fromInputUnsafe(input))));
+    return Math.max(0, Math.floor(Duration.toMillis(input)));
   } catch {
     return null;
   }

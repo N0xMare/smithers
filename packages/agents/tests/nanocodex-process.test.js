@@ -303,7 +303,7 @@ function socketIsListening(path) {
 /** @param {number} milliseconds */
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-describe("runNanocodexProcess", () => {
+describe.skipIf(process.platform !== "linux")("runNanocodexProcess", () => {
   test("waits for a validated hello, serializes records, and returns the marked terminal", async () => {
     const order = [];
     const validated = [];

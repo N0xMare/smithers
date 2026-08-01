@@ -1,3 +1,8 @@
+// Effect 4 makes the cluster stack (SingleRunner, SqlMessageStorage) depend on
+// the effect/Crypto service; without it every dispatch dies with
+// "Service not found: effect/Crypto". BunCrypto.layer is NodeCrypto.layer under
+// the hood (node:crypto), so it is safe on the plain-Node path too.
+import * as BunCrypto from "@effect/platform-bun/BunCrypto";
 import * as MessageStorage from "effect/unstable/cluster/MessageStorage";
 import * as RunnerHealth from "effect/unstable/cluster/RunnerHealth";
 import * as Runners from "effect/unstable/cluster/Runners";
@@ -397,20 +402,20 @@ async function runRegisteredExecution(task) {
  */
 async function buildRunnerLayer() {
   if (typeof Bun !== "undefined") {
-    const [SqliteClient, BunCrypto] = await Promise.all([loadSqliteClient(), import("@effect/platform-bun/BunCrypto")]);
+    const SqliteClient = await loadSqliteClient();
     return SingleRunner.layer({
       runnerStorage: "memory",
       shardingConfig: SINGLE_RUNNER_SHARDING_CONFIG,
     }).pipe(
-      Layer.provide([
+      Layer.provide(
         Layer.orDie(
           SqliteClient.layer({
             filename: ":memory:",
             disableWAL: true,
           }),
         ),
-        BunCrypto.layer,
-      ]),
+      ),
+      Layer.provide(BunCrypto.layer),
     );
   }
   // Mirrors SingleRunner.layer({ runnerStorage: "memory" }) with
@@ -420,6 +425,7 @@ async function buildRunnerLayer() {
     Layer.provideMerge(MessageStorage.layerMemory),
     Layer.provide([RunnerStorage.layerMemory, RunnerHealth.layerNoop]),
     Layer.provide(ShardingConfig.layerFromEnv(SINGLE_RUNNER_SHARDING_CONFIG)),
+    Layer.provide(BunCrypto.layer),
   );
 }
 /**

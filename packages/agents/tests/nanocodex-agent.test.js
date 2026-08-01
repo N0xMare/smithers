@@ -51,7 +51,12 @@ const CAPABILITIES = {
   },
 };
 
-describe("NanocodexAgent", () => {
+const runtimeGlibc = process.report?.getReport?.().header?.glibcVersionRuntime;
+const [glibcMajor = 0, glibcMinor = 0] = typeof runtimeGlibc === "string" ? runtimeGlibc.split(".").map(Number) : [];
+const supportedNanocodexHost =
+  process.platform === "linux" && process.arch === "x64" && (glibcMajor > 2 || (glibcMajor === 2 && glibcMinor >= 35));
+
+describe.skipIf(!supportedNanocodexHost)("NanocodexAgent", () => {
   let directory;
   let binary;
   let capture;

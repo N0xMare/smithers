@@ -9,10 +9,16 @@
     "publishedAt": "2026-07-29T23:57:32Z",
     "url": "https://github.com/N0xMare/smithers-nanocodex/releases/tag/v0.0.1"
   },
+  "source": {
+    "repository": "N0xMare/smithers-nanocodex",
+    "commit": "56d8b4fd54bf14e9f2874e5a010b8e301f8f695b",
+    "tree": "b8a092569e579c21e2ae288a470a6881022b61f2",
+    "cargoLockBlob": "808504efe6b6ea6c43705205ca3182be0dee1afe",
+    "rustVersion": "1.97.0"
+  },
   "artifact": {
     "target": "x86_64-unknown-linux-gnu",
     "fileName": "smithers-nanocodex-v0.0.1-x86_64-unknown-linux-gnu.tar.gz",
-    "downloadUrl": "https://github.com/N0xMare/smithers-nanocodex/releases/download/v0.0.1/smithers-nanocodex-v0.0.1-x86_64-unknown-linux-gnu.tar.gz",
     "sha256": "0e14425b3e0af5c3b1663b4db2a15302cbaa7c03e917babd841ae7fde2a1ab73",
     "sizeBytes": 6286271,
     "minimumGlibcVersion": "2.35"
@@ -30,7 +36,7 @@
     "bridgeArtifact": true,
     "smithersAdapter": false,
     "checks": [
-      "published archive checksum, version, capabilities, and file layout",
+      "CI-built pinned-source archive checksum, version, capabilities, and file layout",
       "Ubuntu 22.04 glibc compatibility smoke test",
       "exact Bubblewrap PID-containment profile",
       "managed-ChatGPT turn using stock workspace tools",
