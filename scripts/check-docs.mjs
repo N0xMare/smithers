@@ -2660,7 +2660,7 @@ function checkVcsHelperDocsMatchCurrentExports() {
     [VCS_JJ_SOURCE, "export function captureWorkspaceSnapshot(cwd)"],
     [
       VCS_DECLARATIONS,
-      "declare function captureWorkspaceSnapshot(cwd?: string): Effect.Effect<WorkspaceSnapshot | null, never, effect_unstable_process_ChildProcessSpawner.ChildProcessSpawner>;",
+      "declare function captureWorkspaceSnapshot(cwd?: string): Effect.Effect<WorkspaceSnapshot | null, never, effect_unstable_process_ChildProcessSpawner.CommandExecutor>;",
     ],
     [VCS_DECLARATIONS, "type WorkspaceSnapshot = {"],
     [

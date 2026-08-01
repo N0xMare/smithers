@@ -14,7 +14,7 @@ const DEFAULT_OTLP_HTTP_ENDPOINT = "http://localhost:4318";
  */
 function resolveLogLevel(value) {
   if (typeof value !== "string") {
-    return "Info";
+    return value ?? "Info";
   }
   switch (value.toLowerCase()) {
     case "none":

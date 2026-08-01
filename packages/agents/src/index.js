@@ -38,6 +38,11 @@
 /** @typedef {import("./OpenCodeAgentOptions.ts").OpenCodeAgentOptions} OpenCodeAgentOptions */
 /** @typedef {import("./PoolAgentOptions.ts").PoolAgentOptions} PoolAgentOptions */
 /** @typedef {import("./VibeAgentOptions.ts").VibeAgentOptions} VibeAgentOptions */
+/** @typedef {import("./NanocodexAgentOptions.ts").NanocodexAgentOptions} NanocodexAgentOptions */
+/** @typedef {import("./NanocodexAgentOptions.ts").NanocodexGenerateOptions} NanocodexGenerateOptions */
+/** @typedef {import("./NanocodexAgentOptions.ts").NanocodexAuth} NanocodexAuth */
+/** @typedef {import("./NanocodexAgentOptions.ts").NanocodexThinking} NanocodexThinking */
+/** @typedef {import("./NanocodexAgentOptions.ts").NanocodexReasoningMode} NanocodexReasoningMode */
 /** @typedef {import("./agent-contract/SmithersAgentContract.ts").SmithersAgentContract} SmithersAgentContract */
 /** @typedef {import("./agent-contract/SmithersAgentContractTool.ts").SmithersAgentContractTool} SmithersAgentContractTool */
 /** @typedef {import("./agent-contract/SmithersAgentToolCategory.ts").SmithersAgentToolCategory} SmithersAgentToolCategory */
@@ -97,6 +102,7 @@ export { KimiAgent } from "./KimiAgent.js";
 export { ForgeAgent } from "./ForgeAgent.js";
 export { OpenCodeAgent } from "./OpenCodeAgent.js";
 export { VibeAgent } from "./VibeAgent.js";
+export { NanocodexAgent } from "./NanocodexAgent.js";
 export {
   getCliAgentCapabilityReport,
   getCliAgentCapabilityDoctorReport,
